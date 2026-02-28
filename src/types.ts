@@ -66,6 +66,15 @@ export const RAMADAN_EVENTS: CalendarEvent[] = [
     color: 'bg-rose-50 border-rose-200 text-rose-600'
   },
   {
+    id: 'feb-28',
+    startDate: '2026-02-28',
+    endDate: '2026-02-28',
+    title: 'Pembiasaan Baik',
+    description: 'pembiasaan baik yang di lakukan oleh siswa dengan bimbingan orang tua siswa di rumah',
+    type: 'weekend',
+    color: 'bg-red-100 border-red-500 text-red-800'
+  },
+  {
     id: '2',
     startDate: '2026-02-23',
     endDate: '2026-03-13',

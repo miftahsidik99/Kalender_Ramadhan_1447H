@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Calendar as CalendarIcon, 
@@ -69,13 +69,28 @@ const FLASH_CARDS = [
 
 export default function App() {
   const [view, setView] = useState<'landing' | 'calendar'>('landing');
-  const [schoolInfo, setSchoolInfo] = useState<SchoolInfo>({
-    name: 'SD Negeri 01 Indonesia',
-    address: 'Jl. Merdeka No. 1, Jakarta Pusat',
-    logoUrl: 'https://picsum.photos/seed/school/100/100'
+  const [schoolInfo, setSchoolInfo] = useState<SchoolInfo>(() => {
+    const saved = localStorage.getItem('school_identity');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Failed to parse school info", e);
+      }
+    }
+    return {
+      name: 'SD Negeri 01 Indonesia',
+      address: 'Jl. Merdeka No. 1, Jakarta Pusat',
+      logoUrl: 'https://picsum.photos/seed/school/100/100'
+    };
   });
   const [isEditing, setIsEditing] = useState(false);
   const [tempSchoolInfo, setTempSchoolInfo] = useState<SchoolInfo>(schoolInfo);
+
+  // Sync tempSchoolInfo when schoolInfo changes (e.g. after loading from storage)
+  useEffect(() => {
+    setTempSchoolInfo(schoolInfo);
+  }, [schoolInfo]);
   
   const [currentMonth, setCurrentMonth] = useState(1); // 0-indexed, so 1 is February
   const [currentYear] = useState(2026);
@@ -139,6 +154,7 @@ export default function App() {
 
   const handleSaveSchoolInfo = () => {
     setSchoolInfo(tempSchoolInfo);
+    localStorage.setItem('school_identity', JSON.stringify(tempSchoolInfo));
     setIsEditing(false);
   };
 

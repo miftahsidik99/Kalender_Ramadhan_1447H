@@ -9,6 +9,15 @@ export interface SchoolInfo {
   logoUrl?: string;
 }
 
+export interface PhaseActivity {
+  phase: string;
+  theme: string;
+  schedule: {
+    time: string;
+    activity: string;
+  }[];
+}
+
 export interface CalendarEvent {
   id: string;
   startDate: string; // ISO format YYYY-MM-DD
@@ -17,6 +26,8 @@ export interface CalendarEvent {
   description: string;
   type: 'mandiri' | 'sekolah' | 'libur' | 'kembali' | 'weekend';
   color: string;
+  phaseActivities?: PhaseActivity[];
+  clickedDate?: string;
 }
 
 export const RAMADAN_EVENTS: CalendarEvent[] = [
@@ -42,6 +53,15 @@ export const RAMADAN_EVENTS: CalendarEvent[] = [
     id: 'march-8',
     startDate: '2026-03-08',
     endDate: '2026-03-08',
+    title: 'Pembiasaan Baik',
+    description: 'pembiasaan baik yang di lakukan oleh siswa dengan bimbingan orang tua siswa di rumah',
+    type: 'weekend',
+    color: 'bg-red-100 border-red-500 text-red-800'
+  },
+  {
+    id: 'march-14',
+    startDate: '2026-03-14',
+    endDate: '2026-03-14',
     title: 'Pembiasaan Baik',
     description: 'pembiasaan baik yang di lakukan oleh siswa dengan bimbingan orang tua siswa di rumah',
     type: 'weekend',

@@ -26,7 +26,8 @@ import {
   PlayCircle,
   BarChart3
 } from 'lucide-react';
-import { RAMADAN_EVENTS, type SchoolInfo, type CalendarEvent } from './types';
+import { RAMADAN_EVENTS, type SchoolInfo, type CalendarEvent, type PhaseActivity } from './types';
+import { getPhaseActivities } from './activityData';
 
 const DAYS_OF_WEEK = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 const MONTHS = [
@@ -68,7 +69,8 @@ const FLASH_CARDS = [
 ];
 
 export default function App() {
-  const [view, setView] = useState<'landing' | 'calendar'>('landing');
+  const [view, setView] = useState<'landing' | 'calendar' | 'activity-detail'>('landing');
+  const [activeActivityDate, setActiveActivityDate] = useState<string | null>(null);
   const [schoolInfo, setSchoolInfo] = useState<SchoolInfo>(() => {
     const saved = localStorage.getItem('school_identity');
     if (saved) {
@@ -123,7 +125,10 @@ export default function App() {
       return current >= start && current <= end;
     });
 
-    if (explicitEvent) return explicitEvent;
+    if (explicitEvent) {
+      const phaseActivities = getPhaseActivities(dateStr);
+      return { ...explicitEvent, phaseActivities, clickedDate: dateStr } as CalendarEvent;
+    }
 
     if (currentMonth === 2 && (dayOfWeek === 0 || dayOfWeek === 6)) {
       return {
@@ -288,7 +293,7 @@ export default function App() {
               </motion.button>
             </div>
           </motion.div>
-        ) : (
+        ) : view === 'calendar' ? (
           <motion.div
             key="calendar"
             initial={{ opacity: 0, x: 100 }}
@@ -504,7 +509,90 @@ export default function App() {
               <p>Aplikasi ini dibuat berdasarkan Juknis Pembelajaran Ramadan 1447H.</p>
             </footer>
           </motion.div>
-        )}
+        ) : view === 'activity-detail' ? (
+          <motion.div
+            key="activity-detail"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="min-h-screen bg-stone-50 text-stone-900 p-4 sm:p-8"
+          >
+            <div className="max-w-5xl mx-auto space-y-8">
+              <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <button 
+                  onClick={() => setView('calendar')}
+                  className="flex items-center gap-2 text-emerald-600 hover:text-emerald-700 transition-colors font-bold group w-fit"
+                >
+                  <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
+                    <ChevronLeft size={24} />
+                  </div>
+                  <span>Kembali ke Kalender</span>
+                </button>
+                <div className="sm:text-right">
+                  <h2 className="text-3xl font-black tracking-tight text-emerald-950">JADWAL KEGIATAN</h2>
+                  <p className="text-emerald-600 font-bold flex items-center sm:justify-end gap-2">
+                    <CalendarIcon size={18} />
+                    {activeActivityDate && new Date(activeActivityDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </p>
+                </div>
+              </header>
+
+              <div className="space-y-12">
+                {activeActivityDate && getPhaseActivities(activeActivityDate)?.map((phase, idx) => (
+                  <motion.div
+                    key={idx}
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.15, type: 'spring', stiffness: 100 }}
+                    className="bg-white rounded-[2rem] border border-stone-200 overflow-hidden shadow-xl shadow-emerald-900/5"
+                  >
+                    <div className="p-8 bg-emerald-600 text-white relative overflow-hidden">
+                      <div className="relative z-10">
+                        <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[10px] font-black tracking-widest uppercase mb-2 inline-block">
+                          PESANTREN RAMADAN 1447H
+                        </span>
+                        <h3 className="text-2xl font-black tracking-tight uppercase">{phase.phase}</h3>
+                        <p className="text-emerald-100 font-medium mt-1">Tema: {phase.theme}</p>
+                      </div>
+                      <Moon className="absolute -bottom-6 -right-6 w-32 h-32 text-white/10 rotate-12" />
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-stone-50/50 border-b border-stone-100">
+                            <th className="px-8 py-5 text-[11px] font-black text-stone-400 uppercase tracking-[0.2em] w-40">Waktu</th>
+                            <th className="px-8 py-5 text-[11px] font-black text-stone-400 uppercase tracking-[0.2em]">Aktivitas Kegiatan</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-stone-50">
+                          {phase.schedule.map((item, sIdx) => (
+                            <tr key={sIdx} className="hover:bg-emerald-50/30 transition-colors group">
+                              <td className="px-8 py-6 whitespace-nowrap align-top">
+                                <span className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-mono font-black border border-emerald-100 group-hover:bg-emerald-100 transition-colors">
+                                  {item.time}
+                                </span>
+                              </td>
+                              <td className="px-8 py-6 align-top">
+                                <p className="text-base text-stone-700 leading-relaxed font-medium">
+                                  {item.activity}
+                                </p>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+
+              <footer className="pt-12 pb-8 text-center border-t border-stone-200">
+                <p className="text-stone-400 text-sm font-medium">© 2026 {schoolInfo.name}</p>
+                <p className="text-stone-300 text-xs mt-1 italic">Aplikasi ini dibuat berdasarkan Juknis Pembelajaran Ramadan 1447H Kabupaten Bandung</p>
+              </footer>
+            </div>
+          </motion.div>
+        ) : null}
       </AnimatePresence>
 
       {/* Shared Modals */}
@@ -542,6 +630,19 @@ export default function App() {
                 <p className="text-stone-600 leading-relaxed">
                   {selectedEvent.description}
                 </p>
+                {selectedEvent.phaseActivities && (
+                  <button 
+                    onClick={() => {
+                      setActiveActivityDate(selectedEvent.clickedDate || selectedEvent.startDate);
+                      setView('activity-detail');
+                      setSelectedEvent(null);
+                    }}
+                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-colors flex items-center justify-center gap-2"
+                  >
+                    <BookOpen size={18} />
+                    <span>Lihat Detail Kegiatan</span>
+                  </button>
+                )}
                 <button 
                   onClick={() => setSelectedEvent(null)}
                   className="w-full py-3 bg-stone-100 hover:bg-stone-200 rounded-xl font-bold transition-colors"

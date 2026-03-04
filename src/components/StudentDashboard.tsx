@@ -10,9 +10,12 @@ import {
   ChevronLeft,
   Calendar as CalendarIcon,
   Activity,
-  Award
+  Award,
+  FileText,
+  X
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import type { StudentProfile, JurnalRamadhanEntry, JurnalKAIHEntry } from '../types';
 
 interface StudentDashboardProps {
@@ -28,6 +31,8 @@ export function StudentDashboard({ onBack, student, onLogout }: StudentDashboard
   const [jurnalRamadhan, setJurnalRamadhan] = useState<JurnalRamadhanEntry[]>([]);
   const [jurnalKAIH, setJurnalKAIH] = useState<JurnalKAIHEntry[]>([]);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [paperSize, setPaperSize] = useState<'A4' | 'F4'>('A4');
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -96,6 +101,37 @@ export function StudentDashboard({ onBack, student, onLogout }: StudentDashboard
     saveRamadhan(newData);
   };
 
+  const handleCheckAllRamadhan = (dayIndex: number) => {
+    const newData = [...jurnalRamadhan];
+    const currentDay = newData[dayIndex];
+    const isAllChecked = 
+      currentDay.puasa && 
+      currentDay.salat.subuh && 
+      currentDay.salat.dzuhur && 
+      currentDay.salat.ashar && 
+      currentDay.salat.maghrib && 
+      currentDay.salat.isya && 
+      currentDay.tarawih && 
+      currentDay.mengaji && 
+      currentDay.sedekah;
+
+    newData[dayIndex] = {
+      ...currentDay,
+      puasa: !isAllChecked,
+      salat: {
+        subuh: !isAllChecked,
+        dzuhur: !isAllChecked,
+        ashar: !isAllChecked,
+        maghrib: !isAllChecked,
+        isya: !isAllChecked,
+      },
+      tarawih: !isAllChecked,
+      mengaji: !isAllChecked,
+      sedekah: !isAllChecked,
+    };
+    saveRamadhan(newData);
+  };
+
   const handleKAIHChange = (dayIndex: number, field: keyof JurnalKAIHEntry) => {
     const newData = [...jurnalKAIH];
     newData[dayIndex] = {
@@ -105,23 +141,82 @@ export function StudentDashboard({ onBack, student, onLogout }: StudentDashboard
     saveKAIH(newData);
   };
 
-  const handleDownload = async () => {
+  const handleCheckAllKAIH = (dayIndex: number) => {
+    const newData = [...jurnalKAIH];
+    const currentDay = newData[dayIndex];
+    const isAllChecked = 
+      currentDay.bangunPagi && 
+      currentDay.beribadah && 
+      currentDay.berolahraga && 
+      currentDay.gemarBelajar && 
+      currentDay.makanBergizi && 
+      currentDay.bermasyarakat && 
+      currentDay.tidurCepat;
+
+    newData[dayIndex] = {
+      ...currentDay,
+      bangunPagi: !isAllChecked,
+      beribadah: !isAllChecked,
+      berolahraga: !isAllChecked,
+      gemarBelajar: !isAllChecked,
+      makanBergizi: !isAllChecked,
+      bermasyarakat: !isAllChecked,
+      tidurCepat: !isAllChecked,
+    };
+    saveKAIH(newData);
+  };
+
+  const handleDownload = () => {
+    setShowPrintModal(true);
+  };
+
+  const handlePrint = async () => {
     if (!printRef.current) return;
+    
     setIsDownloading(true);
+    
     try {
-      const canvas = await html2canvas(printRef.current, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        logging: false
+      // Create PDF document
+      const format = paperSize === 'A4' ? 'a4' : [215.9, 330.2]; // F4 size in mm
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: format
       });
-      const image = canvas.toDataURL('image/png');
-      const link = document.createElement('a');
-      link.href = image;
-      link.download = `Laporan_Jurnal_Ramadhan_${student.name.replace(/\s+/g, '_')}.png`;
-      link.click();
+
+      // Get the two pages
+      const pages = printRef.current.children;
+      
+      for (let i = 0; i < pages.length; i++) {
+        const page = pages[i] as HTMLElement;
+        
+        // Render to canvas
+        const canvas = await html2canvas(page, {
+          scale: 2, // Higher resolution
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff'
+        });
+
+        const imgData = canvas.toDataURL('image/jpeg', 1.0);
+        
+        // Calculate dimensions to fit page
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        
+        // Add image to PDF
+        if (i > 0) {
+          pdf.addPage();
+        }
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      }
+
+      // Download the PDF
+      pdf.save(`Jurnal_Ramadhan_${student.name.replace(/\s+/g, '_')}.pdf`);
+      setShowPrintModal(false);
     } catch (error) {
-      console.error('Error generating image:', error);
-      alert('Gagal mengunduh laporan. Silakan coba lagi.');
+      console.error('Error generating PDF:', error);
+      alert('Terjadi kesalahan saat membuat PDF. Silakan coba lagi.');
     } finally {
       setIsDownloading(false);
     }
@@ -159,9 +254,88 @@ export function StudentDashboard({ onBack, student, onLogout }: StudentDashboard
   const kaihProgress = Math.round((completedKAIHTasks / totalKAIHTasks) * 100) || 0;
 
   return (
-    <div className="min-h-screen bg-stone-50 text-stone-900 pb-20">
+    <div className="min-h-screen bg-stone-50 text-stone-900 pb-20 print:bg-white print:pb-0">
+      <style>
+        {`
+          @media print {
+            @page {
+              size: ${paperSize === 'A4' ? 'A4' : '215.9mm 330.2mm'};
+              margin: 15mm;
+            }
+          }
+        `}
+      </style>
+
+      {/* Print Options Modal */}
+      <AnimatePresence>
+        {showPrintModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowPrintModal(false)}
+              className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.9, y: 20, opacity: 0 }}
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden relative z-10 p-6 space-y-6"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-emerald-950 flex items-center gap-2">
+                  <FileText className="text-emerald-500" />
+                  Pengaturan Cetak PDF
+                </h3>
+                <button onClick={() => setShowPrintModal(false)} className="text-stone-400 hover:text-stone-600">
+                  <X size={24} />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <p className="text-sm text-stone-600">Pilih ukuran kertas untuk laporan jurnal Anda:</p>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => setPaperSize('A4')}
+                    className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${
+                      paperSize === 'A4' 
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700' 
+                        : 'border-stone-200 hover:border-emerald-200 text-stone-500'
+                    }`}
+                  >
+                    <span className="text-xl font-black">A4</span>
+                    <span className="text-xs">210 x 297 mm</span>
+                  </button>
+                  <button
+                    onClick={() => setPaperSize('F4')}
+                    className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${
+                      paperSize === 'F4' 
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700' 
+                        : 'border-stone-200 hover:border-emerald-200 text-stone-500'
+                    }`}
+                  >
+                    <span className="text-xl font-black">F4</span>
+                    <span className="text-xs">215.9 x 330.2 mm</span>
+                  </button>
+                </div>
+
+                <button 
+                  onClick={handlePrint}
+                  className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-colors flex items-center justify-center gap-2 mt-6 shadow-lg shadow-emerald-600/20"
+                >
+                  <Download size={20} />
+                  <span>Lanjutkan Cetak PDF</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
-      <header className="bg-emerald-900 text-white sticky top-0 z-30 shadow-lg">
+      <header className="bg-emerald-900 text-white sticky top-0 z-30 shadow-lg print:hidden">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
           <button
             onClick={onBack}
@@ -190,7 +364,7 @@ export function StudentDashboard({ onBack, student, onLogout }: StudentDashboard
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8 print:hidden">
         {/* Navigation Tabs */}
         <div className="flex flex-wrap gap-2 bg-white p-2 rounded-2xl shadow-sm border border-stone-200">
           {[
@@ -276,8 +450,11 @@ export function StudentDashboard({ onBack, student, onLogout }: StudentDashboard
                       <Award className="text-emerald-400" />
                       Laporan Jurnal Ramadhan
                     </h3>
-                    <p className="text-emerald-100 max-w-lg">
+                    <p className="text-emerald-100 max-w-lg mb-2">
                       Unduh laporan lengkap pengisian jurnal Ramadhan dan 7 KAIH sebagai bukti pelaksanaan kegiatan Pesantren Ramadhan 1447H.
+                    </p>
+                    <p className="text-emerald-300 text-sm italic">
+                      *Klik tombol di samping untuk mengunduh file PDF secara langsung.
                     </p>
                   </div>
                   <button
@@ -290,7 +467,7 @@ export function StudentDashboard({ onBack, student, onLogout }: StudentDashboard
                     ) : (
                       <Download size={20} />
                     )}
-                    <span>{isDownloading ? 'Menyiapkan...' : 'Unduh Laporan (PNG)'}</span>
+                    <span>{isDownloading ? 'Menyiapkan PDF...' : 'Unduh File PDF'}</span>
                   </button>
                 </div>
               </div>
@@ -336,7 +513,18 @@ export function StudentDashboard({ onBack, student, onLogout }: StudentDashboard
                   <tbody className="divide-y divide-stone-100">
                     {jurnalRamadhan.map((entry, idx) => (
                       <tr key={idx} className="hover:bg-emerald-50/30 transition-colors">
-                        <td className="px-4 py-3 text-center font-bold text-stone-500 border-r border-stone-100">{entry.day}</td>
+                        <td className="px-4 py-3 text-center font-bold text-stone-500 border-r border-stone-100">
+                          <div className="flex flex-col items-center gap-1">
+                            <span>{entry.day}</span>
+                            <button 
+                              onClick={() => handleCheckAllRamadhan(idx)}
+                              className="text-[10px] text-emerald-600 hover:text-emerald-800 font-medium bg-emerald-100 hover:bg-emerald-200 px-2 py-0.5 rounded transition-colors"
+                              title="Ceklis semua ibadah di hari ini"
+                            >
+                              Semua
+                            </button>
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-center border-r border-stone-100">
                           <Checkbox checked={entry.puasa} onChange={() => handleRamadhanChange(idx, 'puasa')} />
                         </td>
@@ -401,7 +589,18 @@ export function StudentDashboard({ onBack, student, onLogout }: StudentDashboard
                   <tbody className="divide-y divide-stone-100">
                     {jurnalKAIH.map((entry, idx) => (
                       <tr key={idx} className="hover:bg-amber-50/30 transition-colors">
-                        <td className="px-4 py-3 text-center font-bold text-stone-500 border-r border-stone-100">{entry.day}</td>
+                        <td className="px-4 py-3 text-center font-bold text-stone-500 border-r border-stone-100">
+                          <div className="flex flex-col items-center gap-1">
+                            <span>{entry.day}</span>
+                            <button 
+                              onClick={() => handleCheckAllKAIH(idx)}
+                              className="text-[10px] text-amber-600 hover:text-amber-800 font-medium bg-amber-100 hover:bg-amber-200 px-2 py-0.5 rounded transition-colors"
+                              title="Ceklis semua kebiasaan di hari ini"
+                            >
+                              Semua
+                            </button>
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-center border-r border-stone-100">
                           <Checkbox checked={entry.bangunPagi} onChange={() => handleKAIHChange(idx, 'bangunPagi')} color="amber" />
                         </td>
@@ -433,120 +632,130 @@ export function StudentDashboard({ onBack, student, onLogout }: StudentDashboard
         </AnimatePresence>
       </main>
 
-      {/* Hidden Printable Area */}
+      {/* Hidden Printable Area for PDF Generation */}
       <div className="absolute top-[-9999px] left-[-9999px] opacity-0 pointer-events-none">
-        <div ref={printRef} className="w-[1200px] bg-white p-12 font-sans text-stone-900 border-[16px] border-emerald-900 relative">
-          {/* Decorative Corners */}
-          <div className="absolute top-4 left-4 w-16 h-16 border-t-4 border-l-4 border-emerald-600" />
-          <div className="absolute top-4 right-4 w-16 h-16 border-t-4 border-r-4 border-emerald-600" />
-          <div className="absolute bottom-4 left-4 w-16 h-16 border-b-4 border-l-4 border-emerald-600" />
-          <div className="absolute bottom-4 right-4 w-16 h-16 border-b-4 border-r-4 border-emerald-600" />
-
-          <div className="text-center mb-12">
-            <h1 className="text-4xl font-black text-emerald-950 uppercase tracking-widest mb-2">Laporan Jurnal Ramadhan 1447 H</h1>
-            <h2 className="text-2xl font-bold text-emerald-800">Pesantren Ramadhan & 7 KAIH</h2>
-          </div>
-
-          <div className="flex justify-between items-end mb-10 border-b-2 border-emerald-100 pb-6">
-            <div className="space-y-2">
-              <p className="text-lg"><span className="font-bold w-32 inline-block">Nama Siswa</span>: {student.name}</p>
-              <p className="text-lg"><span className="font-bold w-32 inline-block">Kelas</span>: {student.className}</p>
-              <p className="text-lg"><span className="font-bold w-32 inline-block">Nama Orang Tua</span>: {student.parentName}</p>
+        <div ref={printRef} style={{ width: '1000px', backgroundColor: '#ffffff', color: '#1c1917', fontFamily: 'sans-serif', padding: '40px' }}>
+          {/* PAGE 1: JURNAL RAMADHAN */}
+          <div style={{ minHeight: '1300px', position: 'relative', marginBottom: '40px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+              <h1 style={{ fontSize: '24px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '8px', color: '#064e3b' }}>Laporan Jurnal Ramadhan 1447 H</h1>
+              <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#3f3f46' }}>Pesantren Ramadhan</h2>
             </div>
-            <div className="text-right">
-              <p className="text-sm text-stone-500 font-bold uppercase tracking-wider mb-1">Capaian Jurnal</p>
-              <div className="flex gap-4">
-                <div className="bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-200">
-                  <p className="text-xs text-emerald-700 font-bold">Ibadah</p>
-                  <p className="text-xl font-black text-emerald-900">{ramadhanProgress}%</p>
-                </div>
-                <div className="bg-amber-50 px-4 py-2 rounded-lg border border-amber-200">
-                  <p className="text-xs text-amber-700 font-bold">7 KAIH</p>
-                  <p className="text-xl font-black text-amber-900">{kaihProgress}%</p>
-                </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px', borderBottom: '2px solid #d4d4d8', paddingBottom: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <p style={{ fontSize: '16px', margin: 0 }}><span style={{ fontWeight: 'bold', display: 'inline-block', width: '120px' }}>Nama Siswa</span>: {student.name}</p>
+                <p style={{ fontSize: '16px', margin: 0 }}><span style={{ fontWeight: 'bold', display: 'inline-block', width: '120px' }}>Kelas</span>: {student.className}</p>
+                <p style={{ fontSize: '16px', margin: 0 }}><span style={{ fontWeight: 'bold', display: 'inline-block', width: '120px' }}>Nama Orang Tua</span>: {student.parentName}</p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ fontSize: '12px', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 4px 0' }}>Capaian Ibadah</p>
+                <p style={{ fontSize: '24px', fontWeight: '900', margin: 0, color: '#064e3b' }}>{ramadhanProgress}%</p>
               </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-8">
-            {/* Ramadhan Print Table */}
-            <div>
-              <h3 className="text-xl font-bold text-emerald-900 mb-4 bg-emerald-50 py-2 px-4 rounded-t-xl border-b-2 border-emerald-200">Jurnal Ibadah Ramadhan</h3>
-              <table className="w-full text-xs text-left border-collapse border border-stone-200">
-                <thead className="bg-stone-50">
-                  <tr>
-                    <th className="border border-stone-200 p-2 text-center">Hari</th>
-                    <th className="border border-stone-200 p-2 text-center">Puasa</th>
-                    <th className="border border-stone-200 p-2 text-center">Salat 5 Waktu</th>
-                    <th className="border border-stone-200 p-2 text-center">Tarawih</th>
-                    <th className="border border-stone-200 p-2 text-center">Mengaji</th>
-                    <th className="border border-stone-200 p-2 text-center">Sedekah</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {jurnalRamadhan.map((entry, idx) => {
-                    const salatCount = [entry.salat.subuh, entry.salat.dzuhur, entry.salat.ashar, entry.salat.maghrib, entry.salat.isya].filter(Boolean).length;
-                    return (
-                      <tr key={idx}>
-                        <td className="border border-stone-200 p-1.5 text-center font-bold">{entry.day}</td>
-                        <td className="border border-stone-200 p-1.5 text-center">{entry.puasa ? '✓' : ''}</td>
-                        <td className="border border-stone-200 p-1.5 text-center">{salatCount}/5</td>
-                        <td className="border border-stone-200 p-1.5 text-center">{entry.tarawih ? '✓' : ''}</td>
-                        <td className="border border-stone-200 p-1.5 text-center">{entry.mengaji ? '✓' : ''}</td>
-                        <td className="border border-stone-200 p-1.5 text-center">{entry.sedekah ? '✓' : ''}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* KAIH Print Table */}
-            <div>
-              <h3 className="text-xl font-bold text-amber-900 mb-4 bg-amber-50 py-2 px-4 rounded-t-xl border-b-2 border-amber-200">Jurnal 7 KAIH</h3>
-              <table className="w-full text-xs text-left border-collapse border border-stone-200">
-                <thead className="bg-stone-50">
-                  <tr>
-                    <th className="border border-stone-200 p-2 text-center">Hari</th>
-                    <th className="border border-stone-200 p-2 text-center" title="Bangun Pagi">1</th>
-                    <th className="border border-stone-200 p-2 text-center" title="Beribadah">2</th>
-                    <th className="border border-stone-200 p-2 text-center" title="Berolahraga">3</th>
-                    <th className="border border-stone-200 p-2 text-center" title="Gemar Belajar">4</th>
-                    <th className="border border-stone-200 p-2 text-center" title="Makan Bergizi">5</th>
-                    <th className="border border-stone-200 p-2 text-center" title="Bermasyarakat">6</th>
-                    <th className="border border-stone-200 p-2 text-center" title="Tidur Cepat">7</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {jurnalKAIH.map((entry, idx) => (
+            <table style={{ width: '100%', fontSize: '12px', textAlign: 'left', borderCollapse: 'collapse', border: '1px solid #a1a1aa', marginBottom: '48px' }}>
+              <thead style={{ backgroundColor: '#f4f4f5' }}>
+                <tr>
+                  <th style={{ border: '1px solid #a1a1aa', padding: '6px', textAlign: 'center' }}>Hari</th>
+                  <th style={{ border: '1px solid #a1a1aa', padding: '6px', textAlign: 'center' }}>Puasa</th>
+                  <th style={{ border: '1px solid #a1a1aa', padding: '6px', textAlign: 'center' }}>Salat 5 Waktu</th>
+                  <th style={{ border: '1px solid #a1a1aa', padding: '6px', textAlign: 'center' }}>Tarawih</th>
+                  <th style={{ border: '1px solid #a1a1aa', padding: '6px', textAlign: 'center' }}>Mengaji</th>
+                  <th style={{ border: '1px solid #a1a1aa', padding: '6px', textAlign: 'center' }}>Sedekah</th>
+                </tr>
+              </thead>
+              <tbody>
+                {jurnalRamadhan.map((entry, idx) => {
+                  const salatCount = [entry.salat.subuh, entry.salat.dzuhur, entry.salat.ashar, entry.salat.maghrib, entry.salat.isya].filter(Boolean).length;
+                  return (
                     <tr key={idx}>
-                      <td className="border border-stone-200 p-1.5 text-center font-bold">{entry.day}</td>
-                      <td className="border border-stone-200 p-1.5 text-center">{entry.bangunPagi ? '✓' : ''}</td>
-                      <td className="border border-stone-200 p-1.5 text-center">{entry.beribadah ? '✓' : ''}</td>
-                      <td className="border border-stone-200 p-1.5 text-center">{entry.berolahraga ? '✓' : ''}</td>
-                      <td className="border border-stone-200 p-1.5 text-center">{entry.gemarBelajar ? '✓' : ''}</td>
-                      <td className="border border-stone-200 p-1.5 text-center">{entry.makanBergizi ? '✓' : ''}</td>
-                      <td className="border border-stone-200 p-1.5 text-center">{entry.bermasyarakat ? '✓' : ''}</td>
-                      <td className="border border-stone-200 p-1.5 text-center">{entry.tidurCepat ? '✓' : ''}</td>
+                      <td style={{ border: '1px solid #a1a1aa', padding: '4px', textAlign: 'center', fontWeight: 'bold' }}>{entry.day}</td>
+                      <td style={{ border: '1px solid #a1a1aa', padding: '4px', textAlign: 'center' }}>{entry.puasa ? '✓' : ''}</td>
+                      <td style={{ border: '1px solid #a1a1aa', padding: '4px', textAlign: 'center' }}>{salatCount}/5</td>
+                      <td style={{ border: '1px solid #a1a1aa', padding: '4px', textAlign: 'center' }}>{entry.tarawih ? '✓' : ''}</td>
+                      <td style={{ border: '1px solid #a1a1aa', padding: '4px', textAlign: 'center' }}>{entry.mengaji ? '✓' : ''}</td>
+                      <td style={{ border: '1px solid #a1a1aa', padding: '4px', textAlign: 'center' }}>{entry.sedekah ? '✓' : ''}</td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="mt-4 text-[10px] text-stone-500 space-y-1">
-                <p><strong>Keterangan 7 KAIH:</strong></p>
-                <p>1: Bangun Pagi, 2: Beribadah, 3: Berolahraga, 4: Gemar Belajar, 5: Makan Bergizi, 6: Bermasyarakat, 7: Tidur Cepat</p>
+                  )
+                })}
+              </tbody>
+            </table>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '64px' }}>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ marginBottom: '64px', margin: 0 }}>Mengetahui, Orang Tua/Wali</p>
+                <p style={{ fontWeight: 'bold', textDecoration: 'underline', margin: 0, marginTop: '64px' }}>{student.parentName}</p>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ marginBottom: '64px', margin: 0 }}>Siswa/Siswi</p>
+                <p style={{ fontWeight: 'bold', textDecoration: 'underline', margin: 0, marginTop: '64px' }}>{student.name}</p>
               </div>
             </div>
           </div>
 
-          <div className="mt-16 flex justify-between items-end">
-            <div className="text-center">
-              <p className="mb-16">Mengetahui, Orang Tua/Wali</p>
-              <p className="font-bold underline">{student.parentName}</p>
+          {/* PAGE 2: JURNAL KAIH */}
+          <div style={{ minHeight: '1300px', position: 'relative' }}>
+            <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+              <h1 style={{ fontSize: '24px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '8px', color: '#78350f' }}>Laporan Jurnal 7 KAIH</h1>
+              <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#3f3f46' }}>Kebiasaan Anak Indonesia Hebat</h2>
             </div>
-            <div className="text-center">
-              <p className="mb-16">Siswa/Siswi</p>
-              <p className="font-bold underline">{student.name}</p>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px', borderBottom: '2px solid #d4d4d8', paddingBottom: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <p style={{ fontSize: '16px', margin: 0 }}><span style={{ fontWeight: 'bold', display: 'inline-block', width: '120px' }}>Nama Siswa</span>: {student.name}</p>
+                <p style={{ fontSize: '16px', margin: 0 }}><span style={{ fontWeight: 'bold', display: 'inline-block', width: '120px' }}>Kelas</span>: {student.className}</p>
+                <p style={{ fontSize: '16px', margin: 0 }}><span style={{ fontWeight: 'bold', display: 'inline-block', width: '120px' }}>Nama Orang Tua</span>: {student.parentName}</p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ fontSize: '12px', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 4px 0' }}>Capaian 7 KAIH</p>
+                <p style={{ fontSize: '24px', fontWeight: '900', margin: 0, color: '#78350f' }}>{kaihProgress}%</p>
+              </div>
+            </div>
+
+            <table style={{ width: '100%', fontSize: '12px', textAlign: 'left', borderCollapse: 'collapse', border: '1px solid #a1a1aa', marginBottom: '16px' }}>
+              <thead style={{ backgroundColor: '#f4f4f5' }}>
+                <tr>
+                  <th style={{ border: '1px solid #a1a1aa', padding: '6px', textAlign: 'center' }}>Hari</th>
+                  <th style={{ border: '1px solid #a1a1aa', padding: '6px', textAlign: 'center' }} title="Bangun Pagi">1</th>
+                  <th style={{ border: '1px solid #a1a1aa', padding: '6px', textAlign: 'center' }} title="Beribadah">2</th>
+                  <th style={{ border: '1px solid #a1a1aa', padding: '6px', textAlign: 'center' }} title="Berolahraga">3</th>
+                  <th style={{ border: '1px solid #a1a1aa', padding: '6px', textAlign: 'center' }} title="Gemar Belajar">4</th>
+                  <th style={{ border: '1px solid #a1a1aa', padding: '6px', textAlign: 'center' }} title="Makan Bergizi">5</th>
+                  <th style={{ border: '1px solid #a1a1aa', padding: '6px', textAlign: 'center' }} title="Bermasyarakat">6</th>
+                  <th style={{ border: '1px solid #a1a1aa', padding: '6px', textAlign: 'center' }} title="Tidur Cepat">7</th>
+                </tr>
+              </thead>
+              <tbody>
+                {jurnalKAIH.map((entry, idx) => (
+                  <tr key={idx}>
+                    <td style={{ border: '1px solid #a1a1aa', padding: '4px', textAlign: 'center', fontWeight: 'bold' }}>{entry.day}</td>
+                    <td style={{ border: '1px solid #a1a1aa', padding: '4px', textAlign: 'center' }}>{entry.bangunPagi ? '✓' : ''}</td>
+                    <td style={{ border: '1px solid #a1a1aa', padding: '4px', textAlign: 'center' }}>{entry.beribadah ? '✓' : ''}</td>
+                    <td style={{ border: '1px solid #a1a1aa', padding: '4px', textAlign: 'center' }}>{entry.berolahraga ? '✓' : ''}</td>
+                    <td style={{ border: '1px solid #a1a1aa', padding: '4px', textAlign: 'center' }}>{entry.gemarBelajar ? '✓' : ''}</td>
+                    <td style={{ border: '1px solid #a1a1aa', padding: '4px', textAlign: 'center' }}>{entry.makanBergizi ? '✓' : ''}</td>
+                    <td style={{ border: '1px solid #a1a1aa', padding: '4px', textAlign: 'center' }}>{entry.bermasyarakat ? '✓' : ''}</td>
+                    <td style={{ border: '1px solid #a1a1aa', padding: '4px', textAlign: 'center' }}>{entry.tidurCepat ? '✓' : ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            
+            <div style={{ marginBottom: '48px', fontSize: '10px', color: '#52525b' }}>
+              <p style={{ margin: '0 0 4px 0' }}><strong>Keterangan 7 KAIH:</strong></p>
+              <p style={{ margin: 0 }}>1: Bangun Pagi, 2: Beribadah, 3: Berolahraga, 4: Gemar Belajar, 5: Makan Bergizi, 6: Bermasyarakat, 7: Tidur Cepat</p>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '64px' }}>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ marginBottom: '64px', margin: 0 }}>Mengetahui, Orang Tua/Wali</p>
+                <p style={{ fontWeight: 'bold', textDecoration: 'underline', margin: 0, marginTop: '64px' }}>{student.parentName}</p>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ marginBottom: '64px', margin: 0 }}>Siswa/Siswi</p>
+                <p style={{ fontWeight: 'bold', textDecoration: 'underline', margin: 0, marginTop: '64px' }}>{student.name}</p>
+              </div>
             </div>
           </div>
         </div>

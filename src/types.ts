@@ -7,6 +7,7 @@ export interface SchoolInfo {
   name: string;
   address: string;
   logoUrl?: string;
+  totalStudents?: number;
 }
 
 export type View = 'landing' | 'calendar' | 'activity-detail' | 'material-detail' | 'student-dashboard';

@@ -369,6 +369,144 @@ export default function App() {
                   <span>{studentProfile ? 'DASHBOARD SISWA' : 'LOGIN SISWA'}</span>
                 </button>
               </motion.div>
+
+              {/* Monitoring Section */}
+              <motion.div
+                initial={{ opacity: 0, y: 40 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1 }}
+                className="mt-16 pt-16 border-t border-emerald-800/50 text-left"
+              >
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h3 className="text-2xl font-black text-emerald-50 flex items-center gap-2">
+                      <BarChart3 className="text-emerald-400" />
+                      Monitoring Jurnal Siswa
+                    </h3>
+                    <p className="text-emerald-300 text-sm mt-1">Pantau progres pengisian jurnal Ramadhan dan 7 KAIH</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-emerald-400 font-bold uppercase tracking-wider">Total Siswa</p>
+                    <p className="text-3xl font-black text-white">{schoolInfo.totalStudents || 0}</p>
+                  </div>
+                </div>
+
+                <div className="bg-emerald-900/40 backdrop-blur-md border border-emerald-800/50 rounded-3xl overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                      <thead className="bg-emerald-950/50 text-emerald-200 font-bold border-b border-emerald-800/50">
+                        <tr>
+                          <th className="px-6 py-4">Nama Siswa</th>
+                          <th className="px-6 py-4">Kelas</th>
+                          <th className="px-6 py-4 text-center">Progres Ibadah</th>
+                          <th className="px-6 py-4 text-center">Progres 7 KAIH</th>
+                          <th className="px-6 py-4 text-right">Terakhir Login</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-emerald-800/30">
+                        {(() => {
+                          const directory = JSON.parse(localStorage.getItem('students_directory') || '{}');
+                          const students = Object.values(directory) as any[];
+                          
+                          if (students.length === 0) {
+                            return (
+                              <tr>
+                                <td colSpan={5} className="px-6 py-8 text-center text-emerald-400/60">
+                                  Belum ada siswa yang mengisi jurnal.
+                                </td>
+                              </tr>
+                            );
+                          }
+
+                          return students.map((student, idx) => {
+                            const ramadhanData = JSON.parse(localStorage.getItem(`jurnal_ramadhan_${student.name}`) || '[]');
+                            const kaihData = JSON.parse(localStorage.getItem(`jurnal_kaih_${student.name}`) || '[]');
+                            
+                            const totalRamadhan = 30 * 9;
+                            const completedRamadhan = ramadhanData.reduce((acc: number, day: any) => {
+                              let count = 0;
+                              if (day.puasa) count++;
+                              if (day.salat?.subuh) count++;
+                              if (day.salat?.dzuhur) count++;
+                              if (day.salat?.ashar) count++;
+                              if (day.salat?.maghrib) count++;
+                              if (day.salat?.isya) count++;
+                              if (day.sedekah) count++;
+                              if (day.mengaji) count++;
+                              if (day.tarawih) count++;
+                              return acc + count;
+                            }, 0);
+                            const progRamadhan = Math.round((completedRamadhan / totalRamadhan) * 100) || 0;
+
+                            const totalKaih = 30 * 7;
+                            const completedKaih = kaihData.reduce((acc: number, day: any) => {
+                              let count = 0;
+                              if (day.bangunPagi) count++;
+                              if (day.beribadah) count++;
+                              if (day.berolahraga) count++;
+                              if (day.gemarBelajar) count++;
+                              if (day.makanBergizi) count++;
+                              if (day.bermasyarakat) count++;
+                              if (day.tidurCepat) count++;
+                              return acc + count;
+                            }, 0);
+                            const progKaih = Math.round((completedKaih / totalKaih) * 100) || 0;
+
+                            return (
+                              <tr key={idx} className="hover:bg-emerald-800/20 transition-colors">
+                                <td className="px-6 py-4 font-bold text-white">{student.name}</td>
+                                <td className="px-6 py-4 text-emerald-200">{student.className}</td>
+                                <td className="px-6 py-4 text-center">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <div className="w-16 h-2 bg-emerald-950 rounded-full overflow-hidden">
+                                      <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${progRamadhan}%` }} />
+                                    </div>
+                                    <span className="text-xs font-bold w-8">{progRamadhan}%</span>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 text-center">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <div className="w-16 h-2 bg-emerald-950 rounded-full overflow-hidden">
+                                      <div className="h-full bg-amber-400 rounded-full" style={{ width: `${progKaih}%` }} />
+                                    </div>
+                                    <span className="text-xs font-bold w-8">{progKaih}%</span>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 text-right text-emerald-300/80 text-xs">
+                                  {new Date(student.lastLogin).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                </td>
+                              </tr>
+                            );
+                          });
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                
+                {/* Overall Progress */}
+                {(() => {
+                  const directory = JSON.parse(localStorage.getItem('students_directory') || '{}');
+                  const filledCount = Object.keys(directory).length;
+                  const total = schoolInfo.totalStudents || 0;
+                  const percentage = total > 0 ? Math.round((filledCount / total) * 100) : 0;
+                  
+                  return (
+                    <div className="mt-6 bg-emerald-900/60 border border-emerald-800/50 rounded-2xl p-6 flex items-center justify-between">
+                      <div>
+                        <p className="text-emerald-200 font-medium">Partisipasi Pengisian Jurnal</p>
+                        <p className="text-sm text-emerald-400/80 mt-1">{filledCount} dari {total} siswa telah login dan mulai mengisi jurnal</p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="w-48 h-3 bg-emerald-950 rounded-full overflow-hidden">
+                          <div className="h-full bg-emerald-400 rounded-full transition-all duration-1000" style={{ width: `${percentage}%` }} />
+                        </div>
+                        <span className="text-2xl font-black text-white">{percentage}%</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </motion.div>
             </div>
           </motion.div>
         ) : view === 'calendar' ? (
@@ -1058,9 +1196,20 @@ export default function App() {
                   <label className="text-xs font-bold text-stone-400 uppercase tracking-wider">URL Logo (Opsional)</label>
                   <input 
                     type="text" 
-                    value={tempSchoolInfo.logoUrl}
+                    value={tempSchoolInfo.logoUrl || ''}
                     onChange={(e) => setTempSchoolInfo({...tempSchoolInfo, logoUrl: e.target.value})}
                     placeholder="https://example.com/logo.png"
+                    className="w-full px-4 py-2 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-400 uppercase tracking-wider">Total Siswa (Untuk Monitoring)</label>
+                  <input 
+                    type="number" 
+                    min="1"
+                    value={tempSchoolInfo.totalStudents || ''}
+                    onChange={(e) => setTempSchoolInfo({...tempSchoolInfo, totalStudents: parseInt(e.target.value) || 0})}
+                    placeholder="Contoh: 150"
                     className="w-full px-4 py-2 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
                   />
                 </div>

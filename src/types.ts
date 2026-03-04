@@ -9,12 +9,74 @@ export interface SchoolInfo {
   logoUrl?: string;
 }
 
+export type View = 'landing' | 'calendar' | 'activity-detail' | 'material-detail' | 'student-dashboard';
+
+export interface StudentProfile {
+  name: string;
+  className: string;
+  parentName: string;
+  lastLogin: string;
+}
+
+export interface JurnalRamadhanEntry {
+  day: number;
+  puasa: boolean;
+  salat: {
+    subuh: boolean;
+    dzuhur: boolean;
+    ashar: boolean;
+    maghrib: boolean;
+    isya: boolean;
+  };
+  sedekah: boolean;
+  mengaji: boolean;
+  tarawih: boolean;
+}
+
+export interface JurnalKAIHEntry {
+  day: number;
+  bangunPagi: boolean;
+  beribadah: boolean;
+  berolahraga: boolean;
+  gemarBelajar: boolean;
+  makanBergizi: boolean;
+  bermasyarakat: boolean;
+  tidurCepat: boolean;
+}
+
+export interface MaterialSection {
+  title: string;
+  content: string[];
+  points?: string[];
+  dalil?: {
+    arabic?: string;
+    translation?: string;
+    source?: string;
+  };
+}
+
+export interface MaterialContent {
+  id: string;
+  title: string;
+  fase: string;
+  category: string;
+  introduction?: string;
+  sections: MaterialSection[];
+  activities?: string[];
+  keyMessages?: string[];
+  closingDoa?: {
+    text: string;
+    translation?: string;
+  };
+}
+
 export interface PhaseActivity {
   phase: string;
   theme: string;
   schedule: {
     time: string;
     activity: string;
+    materialId?: string;
   }[];
 }
 

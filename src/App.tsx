@@ -24,10 +24,18 @@ import {
   ExternalLink,
   FileText,
   PlayCircle,
-  BarChart3
+  BarChart3,
+  Star,
+  MousePointerClick,
+  ListTodo,
+  Sparkles,
+  User
 } from 'lucide-react';
-import { RAMADAN_EVENTS, type SchoolInfo, type CalendarEvent, type PhaseActivity } from './types';
+import { RAMADAN_EVENTS, type SchoolInfo, type CalendarEvent, type PhaseActivity, type MaterialContent } from './types';
 import { getPhaseActivities } from './activityData';
+import { MATERIALS, getMaterialById } from './materialData';
+
+import { StudentDashboard } from './components/StudentDashboard';
 
 const DAYS_OF_WEEK = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 const MONTHS = [
@@ -69,8 +77,24 @@ const FLASH_CARDS = [
 ];
 
 export default function App() {
-  const [view, setView] = useState<'landing' | 'calendar' | 'activity-detail'>('landing');
+  const [view, setView] = useState<'landing' | 'calendar' | 'activity-detail' | 'material-detail' | 'student-dashboard'>('landing');
   const [activeActivityDate, setActiveActivityDate] = useState<string | null>(null);
+  const [activeMaterialId, setActiveMaterialId] = useState<string | null>(null);
+  const [showStudentLogin, setShowStudentLogin] = useState(false);
+  const [studentProfile, setStudentProfile] = useState<any>(() => {
+    const saved = localStorage.getItem('student_profile');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
+  
+  const [loginForm, setLoginForm] = useState({ name: '', className: '', parentName: '' });
+
   const [schoolInfo, setSchoolInfo] = useState<SchoolInfo>(() => {
     const saved = localStorage.getItem('school_identity');
     if (saved) {
@@ -280,17 +304,71 @@ export default function App() {
                 ))}
               </motion.div>
 
+              {/* Roadmap */}
+              <motion.div
+                initial={{ y: 40, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.7 }}
+                className="bg-emerald-900/40 backdrop-blur-md border border-emerald-800/50 rounded-3xl p-6 md:p-8 relative overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                <h3 className="text-emerald-300 font-bold text-xs uppercase tracking-widest mb-8 relative z-10">Cara Penggunaan Aplikasi</h3>
+                
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 md:gap-4 relative z-10">
+                  {/* Connecting Line (Desktop) */}
+                  <div className="hidden md:block absolute top-6 left-[10%] right-[10%] h-[2px] bg-emerald-800/50 -z-10" />
+                  
+                  {/* Connecting Line (Mobile) */}
+                  <div className="md:hidden absolute top-[10%] bottom-[10%] left-6 w-[2px] bg-emerald-800/50 -z-10" />
+
+                  {[
+                    { icon: <MousePointerClick size={20} />, title: 'Pilih Tanggal', desc: 'Klik tanggal pada kalender' },
+                    { icon: <ListTodo size={20} />, title: 'Cek Jadwal', desc: 'Lihat jadwal sesuai fase kelas' },
+                    { icon: <BookOpen size={20} />, title: 'Buka Materi', desc: 'Klik aktivitas bertanda materi' },
+                    { icon: <Sparkles size={20} />, title: 'Praktikkan', desc: 'Lakukan pembiasaan baik' }
+                  ].map((step, idx) => (
+                    <div key={idx} className="flex md:flex-col items-center md:text-center gap-4 md:gap-3 w-full md:w-1/4">
+                      <div className="w-12 h-12 rounded-full bg-emerald-800 border-4 border-emerald-950 flex items-center justify-center text-emerald-400 shrink-0 shadow-lg">
+                        {step.icon}
+                      </div>
+                      <div className="text-left md:text-center">
+                        <h4 className="font-bold text-emerald-50 text-sm">{step.title}</h4>
+                        <p className="text-xs text-emerald-300/80 mt-1 leading-relaxed max-w-[200px] md:mx-auto">{step.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+
               {/* CTA */}
-              <motion.button
+              <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.8 }}
-                onClick={() => setView('calendar')}
-                className="group relative inline-flex items-center gap-3 px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-black text-lg rounded-full shadow-xl transition-all hover:scale-105 active:scale-95"
+                className="flex flex-col sm:flex-row items-center justify-center gap-4"
               >
-                <span>BUKA KALENDER</span>
-                <ArrowRight className="group-hover:translate-x-1 transition-transform" />
-              </motion.button>
+                <button
+                  onClick={() => setView('calendar')}
+                  className="group relative inline-flex items-center justify-center gap-3 px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-black text-lg rounded-full shadow-xl transition-all hover:scale-105 active:scale-95 w-full sm:w-auto"
+                >
+                  <span>BUKA KALENDER</span>
+                  <ArrowRight className="group-hover:translate-x-1 transition-transform" />
+                </button>
+                
+                <button
+                  onClick={() => {
+                    if (studentProfile) {
+                      setView('student-dashboard');
+                    } else {
+                      setShowStudentLogin(true);
+                    }
+                  }}
+                  className="group relative inline-flex items-center justify-center gap-3 px-8 py-4 bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-lg rounded-full shadow-xl transition-all hover:scale-105 active:scale-95 w-full sm:w-auto"
+                >
+                  <User size={20} />
+                  <span>{studentProfile ? 'DASHBOARD SISWA' : 'LOGIN SISWA'}</span>
+                </button>
+              </motion.div>
             </div>
           </motion.div>
         ) : view === 'calendar' ? (
@@ -566,16 +644,37 @@ export default function App() {
                         </thead>
                         <tbody className="divide-y divide-stone-50">
                           {phase.schedule.map((item, sIdx) => (
-                            <tr key={sIdx} className="hover:bg-emerald-50/30 transition-colors group">
+                            <tr 
+                              key={sIdx} 
+                              className={`transition-colors group ${item.materialId ? 'cursor-pointer hover:bg-emerald-50' : 'hover:bg-stone-50/50'}`}
+                              onClick={() => {
+                                if (item.materialId) {
+                                  setActiveMaterialId(item.materialId);
+                                  setView('material-detail');
+                                }
+                              }}
+                            >
                               <td className="px-8 py-6 whitespace-nowrap align-top">
-                                <span className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-mono font-black border border-emerald-100 group-hover:bg-emerald-100 transition-colors">
+                                <span className={`px-4 py-2 rounded-xl text-sm font-mono font-black border transition-colors ${
+                                  item.materialId 
+                                    ? 'bg-emerald-600 text-white border-emerald-700 group-hover:bg-emerald-700' 
+                                    : 'bg-emerald-50 text-emerald-700 border-emerald-100 group-hover:bg-emerald-100'
+                                }`}>
                                   {item.time}
                                 </span>
                               </td>
                               <td className="px-8 py-6 align-top">
-                                <p className="text-base text-stone-700 leading-relaxed font-medium">
-                                  {item.activity}
-                                </p>
+                                <div className="flex items-start justify-between gap-4">
+                                  <p className={`text-base leading-relaxed font-medium ${item.materialId ? 'text-emerald-900' : 'text-stone-700'}`}>
+                                    {item.activity}
+                                  </p>
+                                  {item.materialId && (
+                                    <div className="flex items-center gap-1 text-emerald-600 font-bold text-xs uppercase tracking-wider shrink-0 bg-emerald-100 px-2 py-1 rounded-md group-hover:bg-emerald-200 transition-colors">
+                                      <span>Materi</span>
+                                      <ArrowRight size={14} />
+                                    </div>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -592,10 +691,268 @@ export default function App() {
               </footer>
             </div>
           </motion.div>
+        ) : view === 'material-detail' && activeMaterialId ? (
+          <motion.div
+            key="material-detail"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="min-h-screen bg-stone-50 pb-20"
+          >
+            {/* Header */}
+            <header className="bg-white border-b border-stone-200 sticky top-0 z-30">
+              <div className="max-w-4xl mx-auto px-6 h-20 flex items-center justify-between">
+                <button
+                  onClick={() => setView('activity-detail')}
+                  className="flex items-center gap-2 text-stone-500 hover:text-emerald-600 font-medium transition-colors group"
+                >
+                  <div className="w-10 h-10 rounded-full bg-stone-100 flex items-center justify-center group-hover:bg-emerald-50 transition-colors">
+                    <ChevronLeft size={20} />
+                  </div>
+                  <span>Kembali ke Jadwal</span>
+                </button>
+                <div className="text-right">
+                  <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest">{getMaterialById(activeMaterialId)?.category}</p>
+                  <p className="text-sm font-medium text-stone-400">{getMaterialById(activeMaterialId)?.fase}</p>
+                </div>
+              </div>
+            </header>
+
+            <article className="max-w-3xl mx-auto px-6 py-16">
+              {/* Title Section */}
+              <div className="mb-16 text-center">
+                <motion.h1 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-4xl md:text-5xl font-serif font-black text-stone-900 mb-6 leading-tight"
+                >
+                  {getMaterialById(activeMaterialId)?.title}
+                </motion.h1>
+                {getMaterialById(activeMaterialId)?.introduction && (
+                  <p className="text-xl text-stone-600 font-medium leading-relaxed italic max-w-2xl mx-auto">
+                    "{getMaterialById(activeMaterialId)?.introduction}"
+                  </p>
+                )}
+              </div>
+
+              {/* Content Sections */}
+              <div className="space-y-16">
+                {getMaterialById(activeMaterialId)?.sections.map((section, idx) => (
+                  <motion.section 
+                    key={idx}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    className="relative"
+                  >
+                    <div className="flex items-center gap-4 mb-8">
+                      <div className="w-12 h-1 bg-emerald-500 rounded-full" />
+                      <h2 className="text-2xl font-serif font-bold text-stone-800">{section.title}</h2>
+                    </div>
+
+                    <div className="space-y-6 text-lg text-stone-700 leading-relaxed">
+                      {section.content.map((p, pIdx) => (
+                        <p key={pIdx}>{p}</p>
+                      ))}
+                    </div>
+
+                    {section.points && (
+                      <ul className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {section.points.map((point, pIdx) => (
+                          <li key={pIdx} className="flex items-start gap-3 bg-white p-4 rounded-2xl border border-stone-100 shadow-sm">
+                            <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+                              <div className="w-2 h-2 rounded-full bg-emerald-600" />
+                            </div>
+                            <span className="font-medium text-stone-700">{point}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {section.dalil && (
+                      <div className="mt-10 bg-emerald-900 text-white p-8 md:p-12 rounded-[2rem] relative overflow-hidden shadow-2xl">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-800/30 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
+                        <div className="relative z-10">
+                          <p className="text-3xl md:text-4xl font-serif text-right mb-8 leading-[1.8] font-medium" dir="rtl">
+                            {section.dalil.arabic}
+                          </p>
+                          <div className="space-y-4 border-l-2 border-emerald-500/50 pl-6">
+                            <p className="text-emerald-100 italic text-lg leading-relaxed">
+                              "{section.dalil.translation}"
+                            </p>
+                            <p className="text-emerald-400 font-bold text-sm uppercase tracking-widest">
+                              — {section.dalil.source}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </motion.section>
+                ))}
+
+                {/* Activities Section */}
+                {getMaterialById(activeMaterialId)?.activities && (
+                  <section className="bg-stone-100 rounded-[2.5rem] p-10 md:p-16 border border-stone-200">
+                    <div className="flex items-center gap-3 mb-10">
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-600 flex items-center justify-center text-white">
+                        <PlayCircle size={24} />
+                      </div>
+                      <h2 className="text-2xl font-serif font-bold text-stone-800">Aktivitas & Tantangan</h2>
+                    </div>
+                    <div className="space-y-4">
+                      {getMaterialById(activeMaterialId)?.activities?.map((activity, idx) => (
+                        <div key={idx} className="flex items-start gap-4 bg-white p-6 rounded-2xl border border-stone-200 shadow-sm hover:border-emerald-300 transition-colors">
+                          <span className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center font-black text-stone-400 shrink-0">
+                            {idx + 1}
+                          </span>
+                          <p className="text-stone-700 font-medium leading-relaxed">{activity}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* Key Messages */}
+                {getMaterialById(activeMaterialId)?.keyMessages && (
+                  <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {getMaterialById(activeMaterialId)?.keyMessages?.map((msg, idx) => (
+                      <div key={idx} className="bg-white p-8 rounded-3xl border border-stone-100 shadow-sm flex flex-col items-center text-center">
+                        <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 mb-6">
+                          <Star size={24} fill="currentColor" />
+                        </div>
+                        <p className="text-stone-800 font-bold leading-relaxed">
+                          {msg}
+                        </p>
+                      </div>
+                    ))}
+                  </section>
+                )}
+
+                {/* Closing Doa */}
+                {getMaterialById(activeMaterialId)?.closingDoa && (
+                  <section className="text-center py-10 border-t border-stone-200">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-full text-sm font-bold uppercase tracking-widest mb-6">
+                      Doa Penutup
+                    </div>
+                    <p className="text-2xl font-serif font-medium text-stone-800 mb-4 max-w-2xl mx-auto leading-relaxed">
+                      "{getMaterialById(activeMaterialId)?.closingDoa?.text}"
+                    </p>
+                    {getMaterialById(activeMaterialId)?.closingDoa?.translation && (
+                      <p className="text-stone-500 italic">
+                        {getMaterialById(activeMaterialId)?.closingDoa?.translation}
+                      </p>
+                    )}
+                  </section>
+                )}
+              </div>
+            </article>
+
+            {/* Footer */}
+            <footer className="max-w-4xl mx-auto px-6 pt-10 border-t border-stone-200 text-center text-stone-400 text-sm">
+              <p>© 2026 {schoolInfo.name} • Panduan Pesantren Ramadhan 1447H</p>
+            </footer>
+          </motion.div>
+        ) : view === 'student-dashboard' && studentProfile ? (
+          <StudentDashboard 
+            student={studentProfile} 
+            onBack={() => setView('landing')} 
+            onLogout={() => {
+              setStudentProfile(null);
+              localStorage.removeItem('student_profile');
+              setView('landing');
+            }}
+          />
         ) : null}
       </AnimatePresence>
 
       {/* Shared Modals */}
+      {/* Student Login Modal */}
+      <AnimatePresence>
+        {showStudentLogin && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowStudentLogin(false)}
+              className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.9, y: 20, opacity: 0 }}
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden relative z-10 p-6 space-y-6"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-emerald-950 flex items-center gap-2">
+                  <User className="text-emerald-500" />
+                  Login Siswa
+                </h3>
+                <button onClick={() => setShowStudentLogin(false)} className="text-stone-400 hover:text-stone-600">
+                  <X size={24} />
+                </button>
+              </div>
+              
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                if (loginForm.name && loginForm.className && loginForm.parentName) {
+                  const profile = {
+                    ...loginForm,
+                    lastLogin: new Date().toISOString()
+                  };
+                  setStudentProfile(profile);
+                  localStorage.setItem('student_profile', JSON.stringify(profile));
+                  setShowStudentLogin(false);
+                  setView('student-dashboard');
+                }
+              }} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">Nama Lengkap Siswa/Siswi</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={loginForm.name}
+                    onChange={(e) => setLoginForm({...loginForm, name: e.target.value})}
+                    className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
+                    placeholder="Contoh: Ahmad Fulan"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">Kelas / Fase</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={loginForm.className}
+                    onChange={(e) => setLoginForm({...loginForm, className: e.target.value})}
+                    className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
+                    placeholder="Contoh: Kelas 3 (Fase B)"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">Nama Orang Tua / Wali</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={loginForm.parentName}
+                    onChange={(e) => setLoginForm({...loginForm, parentName: e.target.value})}
+                    className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
+                    placeholder="Contoh: Bapak Fulan"
+                  />
+                </div>
+                
+                <button 
+                  type="submit"
+                  className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-colors flex items-center justify-center gap-2 mt-6 shadow-lg shadow-emerald-600/20"
+                >
+                  <Check size={20} />
+                  <span>Masuk ke Jurnal</span>
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Event Modal */}
       <AnimatePresence>
         {selectedEvent && (
